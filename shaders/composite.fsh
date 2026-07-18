@@ -9,6 +9,6 @@ layout(location = 0) out vec4 color;
 
 void main() {
     color = texture(colortex0, texcoord);
-    color.rgb = vec3(color.r,0,0);
+    //color.rgb = vec3(color.r,0,0);
   //color = 1.0 - texture(colortex0, texcoord);
 }
