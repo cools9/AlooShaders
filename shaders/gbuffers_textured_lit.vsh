@@ -22,9 +22,12 @@ void main() {
         position.x += wind;
         position.z += wind * 0.5;
     } else if (blockId == 101) {
-        position.y +=
+        position.z +=
                 sin(position.x * 0.3 + frameTimeCounter * 2.0) * 0.04 +
                 cos(position.z * 0.25 + frameTimeCounter * 1.6) * 0.03;
+        position.x +=
+                sin(position.x * 0.3 + frameTimeCounter * 2.0) * 0.01 +
+                cos(position.z * 0.25 + frameTimeCounter * 1.6) * 0.001;
     }
 
     gl_Position = gl_ModelViewProjectionMatrix * position;
