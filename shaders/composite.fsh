@@ -58,6 +58,27 @@ vec3 getShadow(vec3 shadowScreenPos){
   return shadowColor.rgb * (1.0 - shadowColor.a);
 }
 
+vec3 getSoftShadow(vec4 shadowClipPos){
+  vec3 shadowAccum = vec3(0.0); // sum of all shadow samples
+  const int samples = SHADOW_RANGE * SHADOW_RANGE * 4; // we are taking 2 * SHADOW_RANGE * 2 * SHADOW_RANGE samples
+
+  for(int x = -SHADOW_RANGE; x < SHADOW_RANGE; x++){
+    for(int y = -SHADOW_RANGE; y < SHADOW_RANGE; y++){
+      vec2 offset = vec2(x, y) * SHADOW_RADIUS / float(SHADOW_RANGE);
+      offset /= shadowMapResolution; // offset in the rotated direction by the specified amount. We divide by the resolution so our offset is in terms of pixels
+      vec4 offsetShadowClipPos = shadowClipPos + vec4(offset, 0.0, 0.0); // add offset
+       // apply bias
+      offsetShadowClipPos.xyz = distortShadowClipPos(offsetShadowClipPos.xyz); // apply distortion
+      offsetShadowClipPos.z -= 0.001;
+      vec3 shadowNDCPos = offsetShadowClipPos.xyz / offsetShadowClipPos.w; // convert to NDC space
+      vec3 shadowScreenPos = shadowNDCPos * 0.5 + 0.5; // convert to screen space
+      shadowAccum += getShadow(shadowScreenPos); // take shadow sample
+    }
+  }
+
+  return shadowAccum / float(samples); // divide sum by count, getting average shadow
+}
+
 void main() {
     float depth = texture(depthtex0, texcoord).r;
     vec3 NDCPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
