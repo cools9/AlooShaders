@@ -15,6 +15,7 @@ uniform mat4 shadowModelView;
 uniform mat4 shadowProjection;
 uniform sampler2D shadowtex1;
 uniform sampler2D shadowcolor0;
+uniform sampler2D colortex3;
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 color;
@@ -106,6 +107,56 @@ void main() {
     }
 
 
-    color.rgb *= blocklight + skylight + ambient + sunlight;
+    vec3 lighting = blocklight + skylight + ambient + sunlight;
+
+    color.rgb *= lighting;
+
+    float material = texture(colortex3, texcoord).r;
+
+    if (material > 0.5)
+    {
+        vec3 viewDir = normalize(-viewPos);
+        vec3 lightDir = normalize(worldLightVector);
+
+        vec3 halfDir = normalize(lightDir + viewDir);
+
+        float specular = pow(
+            max(dot(normal, halfDir),0.0),
+            128.0
+        );
+
+        specular *= max(dot(normal, lightDir),0.0);
+
+        specular *= shadow.r;
+
+        //---------------------------------------
+        // Fresnel
+        //---------------------------------------
+
+        float fresnel =
+            pow(1.0 - max(dot(viewDir, normal),0.0),5.0);
+
+        //---------------------------------------
+        // Water tint
+        //---------------------------------------
+
+        color.rgb = mix(
+            color.rgb,
+            vec3(0.05,0.20,0.35),
+            0.15
+        );
+
+        //---------------------------------------
+        // Reflection
+        //---------------------------------------
+
+        color.rgb += vec3(specular * 4.0);
+
+        //---------------------------------------
+        // Fresnel boost
+        //---------------------------------------
+
+        color.rgb += vec3(fresnel * 0.15);
+    }
 
 }
