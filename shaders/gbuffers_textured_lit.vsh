@@ -1,5 +1,6 @@
 #version 330 compatibility
 
+in vec2 mc_Entity;
 out vec2 lmcoord;
 out vec2 texcoord;
 out vec4 glcolor;
@@ -13,4 +14,16 @@ void main() {
   glcolor = gl_Color;
   normal = gl_NormalMatrix * gl_Normal; // this gives us the normal in view space
   normal = mat3(gbufferModelViewInverse) * normal; // this converts the normal to world/player space
+
+  int blockId = int(mc_Entity.x);
+  if (blockId == 100) {
+      float wind =
+          sin(position.x * 0.4 + frameTimeCounter * 2.0) +
+          cos(position.z * 0.3 + frameTimeCounter * 1.8);
+
+      wind *= 0.03;
+
+      position.x += wind;
+      position.z += wind * 0.5;
+  }
 }

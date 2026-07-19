@@ -58,26 +58,21 @@ vec3 getShadow(vec3 shadowScreenPos){
   return shadowColor.rgb * (1.0 - shadowColor.a);
 }
 
-vec3 getSoftShadow(vec4 shadowClipPos){
-  vec3 shadowAccum = vec3(0.0); // sum of all shadow samples
-  const int samples = SHADOW_RANGE * SHADOW_RANGE * 4; // we are taking 2 * SHADOW_RANGE * 2 * SHADOW_RANGE samples
+vec3 getSoftShadow(vec3 shadowScreenPos) {
+    vec3 sum = vec3(0.0);
 
-  for(int x = -SHADOW_RANGE; x < SHADOW_RANGE; x++){
-    for(int y = -SHADOW_RANGE; y < SHADOW_RANGE; y++){
-      vec2 offset = vec2(x, y) * SHADOW_RADIUS / float(SHADOW_RANGE);
-      offset /= shadowMapResolution; // offset in the rotated direction by the specified amount. We divide by the resolution so our offset is in terms of pixels
-      vec4 offsetShadowClipPos = shadowClipPos + vec4(offset, 0.0, 0.0); // add offset
-       // apply bias
-      offsetShadowClipPos.xyz = distortShadowClipPos(offsetShadowClipPos.xyz); // apply distortion
-      offsetShadowClipPos.z -= 0.001;
-      vec3 shadowNDCPos = offsetShadowClipPos.xyz / offsetShadowClipPos.w; // convert to NDC space
-      vec3 shadowScreenPos = shadowNDCPos * 0.5 + 0.5; // convert to screen space
-      shadowAccum += getShadow(shadowScreenPos); // take shadow sample
+    for (int x = -SHADOW_RANGE; x <= SHADOW_RANGE; x++) {
+        for (int y = -SHADOW_RANGE; y <= SHADOW_RANGE; y++) {
+            vec3 samplePos = shadowScreenPos;
+            samplePos.xy += vec2(x, y) * SHADOW_RADIUS / shadowMapResolution;
+            sum += getShadow(samplePos);
+        }
     }
-  }
 
-  return shadowAccum / float(samples); // divide sum by count, getting average shadow
+    float samples = float((SHADOW_RANGE * 2 + 1) * (SHADOW_RANGE * 2 + 1));
+    return sum / samples;
 }
+
 
 void main() {
     float depth = texture(depthtex0, texcoord).r;
@@ -94,7 +89,7 @@ void main() {
     const vec3 skylightColor = vec3(0.05, 0.15, 0.3);
     const vec3 sunlightColor = vec3(1.0);
     const vec3 ambientColor = vec3(0.1);
-    vec3 shadow = getShadow(shadowScreenPos);
+    vec3 shadow = getSoftShadow(shadowScreenPos);
     color = texture(colortex0, texcoord);
     vec2 lightmap = texture(colortex1, texcoord).rg; // we only need the r and g components
     vec3 encodedNormal = texture(colortex2, texcoord).rgb;
