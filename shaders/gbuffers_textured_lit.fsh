@@ -4,7 +4,8 @@ uniform sampler2D lightmap;
 uniform sampler2D gtexture;
 
 uniform float alphaTestRef = 0.1;
-
+flat in int blockId;
+uniform float frameTimeCounter;
 in vec2 lmcoord;
 in vec2 texcoord;
 in vec4 glcolor;
@@ -23,5 +24,8 @@ void main() {
 	lightmapData = vec4(lmcoord, 0.0, 1.0);
     encodedNormal = vec4(normal * 0.5 + 0.5, 1.0);
 
+    if (blockId == 101) {
+        color.rgb=vec3(1.0,0.0,1.0);
+    }
 
 }

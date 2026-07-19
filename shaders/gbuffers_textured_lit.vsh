@@ -7,6 +7,7 @@ out vec4 glcolor;
 out vec3 normal;
 uniform mat4 gbufferModelViewInverse;
 uniform float frameTimeCounter;
+flat out int blockId;
 
 void main() {
     vec4 position = gl_Vertex;
@@ -22,12 +23,13 @@ void main() {
         position.x += wind;
         position.z += wind * 0.5;
     } else if (blockId == 101) {
-        position.z +=
-                sin(position.x * 0.3 + frameTimeCounter * 2.0) * 0.04 +
-                cos(position.z * 0.25 + frameTimeCounter * 1.6) * 0.03;
-        position.x +=
-                sin(position.x * 0.3 + frameTimeCounter * 2.0) * 0.01 +
-                cos(position.z * 0.25 + frameTimeCounter * 1.6) * 0.001;
+        float wave = 0.0;
+
+        wave += sin(position.x * 0.8 + frameTimeCounter * 2.0);
+        wave += cos(position.z * 0.6 + frameTimeCounter * 1.5);
+        wave += sin((position.x + position.z) * 0.4 + frameTimeCounter * 2.8);
+
+        position.y += wave * 0.015;
     }
 
     gl_Position = gl_ModelViewProjectionMatrix * position;
