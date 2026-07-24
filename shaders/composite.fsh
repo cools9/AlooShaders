@@ -91,7 +91,7 @@ void main() {
     float NdotL = clamp(dot(normal, worldLightVector), 0.0, 1.0);
 
     // slope-scaled normal offset in world space
-    float normalOffset = mix(0.05, 0.01, NdotL); // tweak these two values
+    float normalOffset = mix(0.05, 0.01, NdotL);
     feetPlayerPos += normal * normalOffset;
 
     vec3 shadowViewPos = (shadowModelView * vec4(feetPlayerPos, 1.0)).xyz;
@@ -109,10 +109,14 @@ void main() {
     color = texture(colortex0, texcoord);
     vec2 lightmap = texture(colortex1, texcoord).rg;
 
+    // how high the sun/moon is above the horizon
+    float sunHeight = worldLightVector.y;
+    float dayBrightness = smoothstep(-0.1, 0.1, sunHeight);
+
     vec3 blocklight = lightmap.r * blocklightColor;
-    vec3 skylight = lightmap.g * skylightColor;
-    vec3 ambient = ambientColor;
-    vec3 sunlight = sunlightColor * NdotL * shadow; // reuse NdotL instead of recomputing dot()
+    vec3 skylight = lightmap.g * skylightColor * mix(0.5, 1.0, dayBrightness);
+    vec3 ambient = ambientColor * mix(0.3, 1.0, dayBrightness);
+    vec3 sunlight = sunlightColor * NdotL * shadow * dayBrightness;
 
     vec3 lighting = blocklight + skylight + ambient + sunlight;
 
@@ -137,8 +141,15 @@ void main() {
 
         float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
 
-        color.rgb = mix(color.rgb, vec3(0.05, 0.20, 0.35), 0.15);
-        color.rgb += vec3(specular * 4.0);
+        vec3 waterColor = vec3(0.02, 0.08, 0.15); // darker base tint
+        vec3 skyColor = vec3(0.5, 0.7, 1.0);
+
+        // reflection: mostly water color when looking straight down,
+        // fades toward sky color at grazing angles
+        vec3 reflection = mix(waterColor, skyColor, fresnel);
+
+        color.rgb = mix(color.rgb, reflection, 0.6); // actually use the reflection now
+        color.rgb += vec3(specular * 1.0);
         color.rgb += vec3(fresnel * 0.15);
     }
 }
