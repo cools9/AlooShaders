@@ -1,8 +1,10 @@
 const int shadowMapResolution = 2048;
 //const float shadowDistanceRenderMul = 1.0;
-const bool shadowtex0Nearest = true;
-const bool shadowtex1Nearest = true;
-const bool shadowcolor0Nearest = true;
+
+
+const bool shadowtex0Nearest = false;
+const bool shadowtex1Nearest = false;
+const bool shadowcolor0Nearest = false;
 #define SHADOW_RADIUS 1
 #define SHADOW_RANGE 4
 
