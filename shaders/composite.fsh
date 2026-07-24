@@ -77,35 +77,42 @@ vec3 getSoftShadow(vec3 shadowScreenPos) {
 
 void main() {
     float depth = texture(depthtex0, texcoord).r;
+    if (depth == 1.0) { color = texture(colortex0, texcoord); return; }
+
     vec3 NDCPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
     vec3 viewPos = projectAndDivide(gbufferProjectionInverse, NDCPos);
     vec3 feetPlayerPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz;
+
+    // decode normal + light vector BEFORE building the shadow position
+    vec3 encodedNormal = texture(colortex2, texcoord).rgb;
+    vec3 normal = normalize((encodedNormal - 0.5) * 2.0);
+    vec3 lightVector = normalize(shadowLightPosition);
+    vec3 worldLightVector = mat3(gbufferModelViewInverse) * lightVector;
+    float NdotL = clamp(dot(normal, worldLightVector), 0.0, 1.0);
+
+    // slope-scaled normal offset in world space
+    float normalOffset = mix(0.05, 0.01, NdotL); // tweak these two values
+    feetPlayerPos += normal * normalOffset;
+
     vec3 shadowViewPos = (shadowModelView * vec4(feetPlayerPos, 1.0)).xyz;
     vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
-    shadowClipPos.z -= 0.001;
     shadowClipPos.xyz = distortShadowClipPos(shadowClipPos.xyz);
     vec3 shadowNDCPos = shadowClipPos.xyz / shadowClipPos.w;
     vec3 shadowScreenPos = shadowNDCPos * 0.5 + 0.5;
+
     const vec3 blocklightColor = vec3(1.0, 0.5, 0.08);
     const vec3 skylightColor = vec3(0.05, 0.15, 0.3);
     const vec3 sunlightColor = vec3(1.0);
     const vec3 ambientColor = vec3(0.1);
+
     vec3 shadow = getSoftShadow(shadowScreenPos);
     color = texture(colortex0, texcoord);
-    vec2 lightmap = texture(colortex1, texcoord).rg; // we only need the r and g components
-    vec3 encodedNormal = texture(colortex2, texcoord).rgb;
-    vec3 normal = normalize((encodedNormal - 0.5) * 2.0); // we normalize to make sure it is of unit length
+    vec2 lightmap = texture(colortex1, texcoord).rg;
+
     vec3 blocklight = lightmap.r * blocklightColor;
     vec3 skylight = lightmap.g * skylightColor;
     vec3 ambient = ambientColor;
-    vec3 lightVector = normalize(shadowLightPosition);
-    vec3 worldLightVector = mat3(gbufferModelViewInverse) * lightVector;
-    vec3 sunlight = sunlightColor * clamp(dot(worldLightVector, normal), 0.0, 1.0) * shadow;
-
-    if (depth == 1.0) {
-      return;
-    }
-
+    vec3 sunlight = sunlightColor * NdotL * shadow; // reuse NdotL instead of recomputing dot()
 
     vec3 lighting = blocklight + skylight + ambient + sunlight;
 
@@ -121,42 +128,17 @@ void main() {
         vec3 halfDir = normalize(lightDir + viewDir);
 
         float specular = pow(
-            max(dot(normal, halfDir),0.0),
+            max(dot(normal, halfDir), 0.0),
             128.0
         );
 
-        specular *= max(dot(normal, lightDir),0.0);
-
+        specular *= max(dot(normal, lightDir), 0.0);
         specular *= shadow.r;
 
-        //---------------------------------------
-        // Fresnel
-        //---------------------------------------
+        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
 
-        float fresnel =
-            pow(1.0 - max(dot(viewDir, normal),0.0),5.0);
-
-        //---------------------------------------
-        // Water tint
-        //---------------------------------------
-
-        color.rgb = mix(
-            color.rgb,
-            vec3(0.05,0.20,0.35),
-            0.15
-        );
-
-        //---------------------------------------
-        // Reflection
-        //---------------------------------------
-
+        color.rgb = mix(color.rgb, vec3(0.05, 0.20, 0.35), 0.15);
         color.rgb += vec3(specular * 4.0);
-
-        //---------------------------------------
-        // Fresnel boost
-        //---------------------------------------
-
         color.rgb += vec3(fresnel * 0.15);
     }
-
 }

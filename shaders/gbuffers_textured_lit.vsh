@@ -49,14 +49,14 @@ void main() {
 
         // Approximate animated normal
         float dx =
-            cos(position.x * 0.8 + frameTimeCounter * 2.0) * 0.8 +
-            cos((position.x + position.z) * 0.4 + frameTimeCounter * 2.8) * 0.4;
+            cos(position.x * 0.8 + frameTimeCounter * 2.0) * 0.08 +
+            cos((position.x + position.z) * 0.4 + frameTimeCounter * 2.08) * 0.04;
 
         float dz =
-            -sin(position.z * 0.6 + frameTimeCounter * 1.5) * 0.6 +
-            cos((position.x + position.z) * 0.4 + frameTimeCounter * 2.8) * 0.4;
+            -sin(position.z * 0.6 + frameTimeCounter * 1.5) * 0.06 +
+            cos((position.x + position.z) * 0.4 + frameTimeCounter * 2.08) * 0.04;
 
-        N = normalize(vec3(-dx * 0.02, 1.0, -dz * 0.02));
+        N = normalize(vec3(-dx * 0.02, 1.0, -dz * 2));
     }
 
     gl_Position = gl_ModelViewProjectionMatrix * position;
