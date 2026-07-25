@@ -5,7 +5,7 @@ uniform sampler2D gtexture;
 
 uniform float alphaTestRef = 0.1;
 uniform float frameTimeCounter;
-
+uniform sampler2D noisetex;
 flat in int blockId;
 
 in vec2 lmcoord;
@@ -30,32 +30,39 @@ void main() {
     lightmapData = vec4(lmcoord, 0.0, 1.0);
 
     vec3 N = normal;
+    
+if (blockId == 101)
+{
+    float t = frameTimeCounter;
 
-    if (blockId == 101)
-    {
-        float t = frameTimeCounter;
+    // use world-space-ish position instead of pure texcoord so tiling isn't tied
+    // to the texture's UV repeat interval
+    vec2 uv = texcoord * 32.0;
 
-        vec2 uv = texcoord * 32.0;
+    // scroll two noise samples at different speeds/scales and combine —
+    // breaks the phase-locked periodicity of pure sine sums
+    vec2 scrollA = uv * 0.05 + vec2(t * 0.6, t * 0.3);
+    vec2 scrollB = uv * 0.13 - vec2(t * 0.25, t * 0.45);
 
-        float waveX =
-              sin(uv.x * 1.7 + t * 2.0)
-            + sin(uv.y * 2.8 + t * 1.4)
-            + sin((uv.x + uv.y) * 1.2 + t * 2.7);
+    float noiseA = texture(noisetex, fract(scrollA)).r;
+    float noiseB = texture(noisetex, fract(scrollB)).r;
 
-        float waveZ =
-              cos(uv.y * 1.5 + t * 2.2)
-            + cos(uv.x * 2.5 + t * 1.8)
-            + cos((uv.x - uv.y) * 1.3 + t * 2.4);
+    // still keep a couple sine terms for directional "wave" character,
+    // but drive their phase/amplitude off noise instead of pure time
+    float waveX =
+          sin(uv.x * 1.7 + t * 2.0 + noiseA * 6.2831)
+        + (noiseB - 0.5) * 2.0;
+    float waveZ =
+          cos(uv.y * 1.5 + t * 2.2 + noiseB * 6.2831)
+        + (noiseA - 0.5) * 2.0;
 
-        N = normalize(vec3(
-            waveX * 0.15,
-            1.0,
-            waveZ * 0.15
-        ));
-
-        materialData = vec4(1.0,0.0,0.0,1.0);
-    }
-    else
+    N = normalize(vec3(
+        waveX * 0.15,
+        1.0,
+        waveZ * 0.15
+    ));
+    materialData = vec4(1.0,0.0,0.0,1.0);
+}    else
     {
         materialData = vec4(0.0);
     }
