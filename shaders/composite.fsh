@@ -1,6 +1,8 @@
 #version 330 compatibility
 
 #include "/lib/distort.glsl"
+#define SHADOW_RANGE 1
+#define SHADOW_RADIUS 0.6
 
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
@@ -81,7 +83,6 @@ void main() {
     if (depth == 1.0) { color = texture(colortex0, texcoord); return; }
 
     color = texture(colortex0, texcoord);
-    //color.rgb = pow(color.rgb, vec3(2.2)); // sRGB -> linear before lighting math
 
     vec3 NDCPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
     vec3 viewPos = projectAndDivide(gbufferProjectionInverse, NDCPos);
@@ -106,7 +107,7 @@ void main() {
     const vec3 skylightColor = vec3(0.05, 0.15, 0.3);
     const vec3 sunlightColor = vec3(1.0);
     const vec3 ambientColor = vec3(0.3);
-    const vec3 nightAmbientColor = vec3(0.1);
+    const vec3 nightAmbientColor = vec3(0.18);
     const vec3 rainColor = vec3(0.2);
 
     vec2 lightmap = texture(colortex1, texcoord).rg;
@@ -118,16 +119,20 @@ void main() {
     vec3 skylight;
     vec3 ambient;
 
-    // day/night + rain branch, using worldTime instead of just sun height
-    if ((worldTime <= 12700 || worldTime >= 22900) && rainStrength == 0.0) {
-        shadow = getSoftShadow(shadowScreenPos, texcoord);
+    bool isDaytime = (worldTime <= 12700 || worldTime >= 22900) && rainStrength == 0.0;
+
+    if (isDaytime) {
+        // skip the shadow sample loop entirely for surfaces facing away from the sun
+        if (NdotL > 0.0) {
+            shadow = getSoftShadow(shadowScreenPos, texcoord);
+        }
         skylight = lightmap.g * skylightColor * mix(0.5, 1.0, dayBrightness);
         ambient = ambientColor * mix(0.3, 1.0, dayBrightness);
     } else {
         if (rainStrength > 0.1) {
             skylight = lightmap.g * rainColor;
         } else {
-            skylight = lightmap.g * skylightColor * mix(0.5, 1.0, dayBrightness);
+            skylight = lightmap.g * skylightColor * mix(0.7, 1.0, dayBrightness);
         }
         ambient = nightAmbientColor;
     }
@@ -142,30 +147,8 @@ void main() {
 
     if (material > 0.5)
     {
-        vec3 viewDir = normalize(-viewPos);
-        vec3 lightDir = normalize(worldLightVector);
+        vec3 waterColor = vec3(0.01, 0.04, 0.08);
+        color.rgb = mix(color.rgb, waterColor, 0.6);
 
-        vec3 halfDir = normalize(lightDir + viewDir);
-
-        float specular = pow(
-            max(dot(normal, halfDir), 0.0),
-            128.0
-        );
-
-        specular *= max(dot(normal, lightDir), 0.0);
-        specular *= shadow.r;
-
-        float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 5.0);
-
-        vec3 waterColor = vec3(0.01, 0.04, 0.08);   // darker, since gamma will lift it
-        vec3 skyColor = vec3(0.25, 0.4, 0.6);       // darker sky reflection tint
-
-        vec3 reflection = mix(waterColor, skyColor, fresnel);
-
-        color.rgb = mix(color.rgb, reflection, 0.6);
-        color.rgb += vec3(specular * 0.4);   // was 1.0 — cut hard, gamma amplifies this a lot
-        color.rgb += vec3(fresnel * 0.08);   // was 0.15
     }
-
-    //color.rgb = pow(color.rgb, vec3(1.0 / 2.2)); // linear -> sRGB before output
 }

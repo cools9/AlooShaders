@@ -6,7 +6,7 @@ const bool shadowtex0Nearest = false;
 const bool shadowtex1Nearest = false;
 const bool shadowcolor0Nearest = false;
 #define SHADOW_RADIUS 1
-#define SHADOW_RANGE 4
+#define SHADOW_RANGE 1
 
 vec3 distortShadowClipPos(vec3 shadowClipPos){
   float distortionFactor = length(shadowClipPos.xy); // distance from the player in shadow clip space

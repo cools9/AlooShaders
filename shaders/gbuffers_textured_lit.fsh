@@ -62,3 +62,4 @@ void main() {
 
     encodedNormal = vec4(N * 0.5 + 0.5,1.0);
 }
+
