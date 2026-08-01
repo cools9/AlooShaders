@@ -24,8 +24,74 @@ uniform float viewHeight;
 uniform int worldTime;
 uniform float rainStrength;
 
+uniform sampler2D normals;
+uniform sampler2D specular;
+
+
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 color;
+
+vec3 getMetalF0(int id) {
+    if (id == 230) return vec3(0.531, 0.512, 0.496); // Iron
+    if (id == 231) return vec3(0.944, 0.776, 0.373); // Gold
+    if (id == 232) return vec3(0.912, 0.914, 0.920); // Aluminum
+    if (id == 233) return vec3(0.556, 0.555, 0.555); // Chrome
+    if (id == 234) return vec3(0.926, 0.721, 0.504); // Copper
+    if (id == 235) return vec3(0.633, 0.626, 0.641); // Lead
+    if (id == 236) return vec3(0.679, 0.642, 0.588); // Platinum
+    if (id == 237) return vec3(0.962, 0.949, 0.922); // Silver
+    return vec3(0.9); // 238-254 undefined by spec, fallback
+}
+
+vec3 getF0(vec4 specularTex, vec3 albedo) {
+    int id = int(specularTex.g * 255.0 + 0.5);
+    if (id <= 229) {
+        return vec3(specularTex.g); // dielectric, linear
+    } else if (id == 255) {
+        return albedo; // generic metal — use surface color as F0
+    } else {
+        return getMetalF0(id); // predefined metal
+    }
+}
+
+float getMetallic(vec4 specularTex) {
+    int id = int(specularTex.g * 255.0 + 0.5);
+    return id >= 230 ? 1.0 : 0.0; // per spec: 230+ is metal (predefined or generic via albedo)
+}
+
+vec3 brdf(vec3 lightDir, vec3 viewDir, float roughness, vec3 normal, vec3 albedo, float metallic, vec3 reflectance) {
+
+    float alpha = pow(roughness, 2.0);
+    vec3 H = normalize(lightDir + viewDir);
+
+    float NdotV = clamp(dot(normal, viewDir), 0.001, 1.0);
+    float NdotL = clamp(dot(normal, lightDir), 0.001, 1.0);
+    float NdotH = clamp(dot(normal, H), 0.001, 1.0);
+    float VdotH = clamp(dot(viewDir, H), 0.001, 1.0);
+
+    // Fresnel
+    vec3 F0 = reflectance;
+    vec3 fresnelReflectance = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
+
+    // Diffuse (Lambertian, energy-conserving)
+    vec3 rhoD = albedo / 3.14159;
+    rhoD *= (vec3(1.0) - fresnelReflectance);
+    rhoD *= (1.0 - metallic); // metals have ~zero diffuse
+
+    // Geometric attenuation
+    float k = alpha / 2.0;
+    float geometry = (NdotL / (NdotL * (1.0 - k) + k)) * (NdotV / (NdotV * (1.0 - k) + k));
+
+    // Normal distribution (GGX)
+    float lowerTerm = pow(NdotH, 2.0) * (pow(alpha, 2.0) - 1.0) + 1.0;
+    float distribution = pow(alpha, 2.0) / (3.14159 * pow(lowerTerm, 2.0));
+
+    vec3 cookTorrance = (fresnelReflectance * distribution * geometry) / (4.0 * NdotL * NdotV);
+
+    vec3 BRDF = (rhoD + cookTorrance) * NdotL;
+
+    return BRDF;
+}
 
 vec3 projectAndDivide(mat4 projectionMatrix, vec3 position){
   vec4 homPos = projectionMatrix * vec4(position, 1.0);
@@ -56,7 +122,6 @@ vec3 getShadow(vec3 shadowScreenPos){
 }
 
 vec3 getSoftShadow(vec3 shadowScreenPos, vec2 screenTexcoord) {
-    // per-pixel rotation breaks up the fixed-grid PCF pattern into dithered noise
     float noise = getNoise(screenTexcoord).r;
     float theta = noise * radians(360.0);
     mat2 rotation = mat2(cos(theta), -sin(theta), sin(theta), cos(theta));
@@ -83,6 +148,7 @@ void main() {
     if (depth == 1.0) { color = texture(colortex0, texcoord); return; }
 
     color = texture(colortex0, texcoord);
+    vec3 albedo = color.rgb; // keep the unlit base color for BRDF diffuse + generic-metal F0
 
     vec3 NDCPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
     vec3 viewPos = projectAndDivide(gbufferProjectionInverse, NDCPos);
@@ -122,7 +188,6 @@ void main() {
     bool isDaytime = (worldTime <= 12700 || worldTime >= 22900) && rainStrength == 0.0;
 
     if (isDaytime) {
-        // skip the shadow sample loop entirely for surfaces facing away from the sun
         if (NdotL > 0.0) {
             shadow = getSoftShadow(shadowScreenPos, texcoord);
         }
@@ -137,11 +202,22 @@ void main() {
         ambient = nightAmbientColor;
     }
 
-    vec3 blocklight = lightmap.r * blocklightColor;
-    vec3 sunlight = sunlightColor * NdotL * shadow * dayBrightness;
+    vec4 specularTex = texture(specular, texcoord);
+    float smoothness = specularTex.r;
+    float roughness = pow(1.0 - smoothness, 2.0);
+    vec3 F0 = getF0(specularTex, albedo);
+    float metallic = getMetallic(specularTex);
 
-    vec3 lighting = blocklight + skylight + ambient + sunlight;
-    color.rgb *= lighting;
+    vec3 viewDir = normalize(-viewPos);
+    vec3 lightDir = worldLightVector; // already normalized above
+
+    vec3 directLight = brdf(lightDir, viewDir, roughness, normal, albedo, metallic, F0)
+                        * sunlightColor * shadow * dayBrightness; // NdotL already baked into brdf()
+
+    vec3 blocklight = lightmap.r * blocklightColor;
+    vec3 indirect = albedo * (blocklight + skylight + ambient);
+
+    color.rgb = indirect + directLight;
 
     float material = texture(colortex3, texcoord).r;
 
@@ -149,6 +225,5 @@ void main() {
     {
         vec3 waterColor = vec3(0.01, 0.04, 0.08);
         color.rgb = mix(color.rgb, waterColor, 0.6);
-
     }
 }
