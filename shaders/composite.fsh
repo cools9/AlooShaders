@@ -4,6 +4,7 @@
 #define SHADOW_RANGE 1
 #define SHADOW_RADIUS 0.6
 
+uniform sampler2D depthtex1;
 uniform sampler2D colortex0;
 uniform sampler2D colortex1;
 uniform sampler2D colortex2;
@@ -223,7 +224,21 @@ void main() {
 
     if (material > 0.5)
     {
-        vec3 waterColor = vec3(0.01, 0.04, 0.08);
-        color.rgb = mix(color.rgb, waterColor, 0.6);
+        // depth of the opaque surface behind the water (seafloor/terrain)
+        float opaqueDepth = texture(depthtex1, texcoord).r;
+        vec3 opaqueNDC = vec3(texcoord.xy, opaqueDepth) * 2.0 - 1.0;
+        vec3 opaqueViewPos = projectAndDivide(gbufferProjectionInverse, opaqueNDC);
+
+        // distance light travels through the water at this pixel
+        float waterDepth = distance(viewPos, opaqueViewPos);
+
+        vec3 shallowColor = vec3(0.10, 0.35, 0.45); // near-clear, pale
+        vec3 deepColor = vec3(0.01, 0.04, 0.08);    // dark, near-opaque
+
+        float depthFactor = 1.0 - exp(-waterDepth * 0.25); // higher = darkens faster with depth
+        vec3 waterColor = mix(shallowColor, deepColor, depthFactor);
+
+        float blendAmount = mix(0.25, 0.85, depthFactor); // shallow edges stay more see-through
+        color.rgb = mix(color.rgb, waterColor, blendAmount);
     }
 }
