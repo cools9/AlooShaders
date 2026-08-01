@@ -1,22 +1,44 @@
 #version 330 compatibility
 
 uniform vec3 fogColor;
-uniform float far;
+uniform vec3 skyColor;
+uniform vec3 shadowLightPosition;
+
 in vec2 texcoord;
 in vec4 glcolor;
+in vec2 cellUV;
 
 layout(location = 0) out vec4 color;
 
-void main() {
-    // vanilla passes cloud shape/shading through vertex color alpha
-    color = glcolor;
+void main()
+{
+    vec4 cloud = glcolor;
 
-    // softer, fluffier look: reduce harsh opacity, brighten slightly
-    color.rgb = mix(color.rgb, vec3(1.0), 0.15);
-    color.a *= 0.75;
+    float dist2 = dot(cellUV, cellUV); // squared distance from cell center
 
-    // fade clouds into fog color/fog color at distance so edges don't look like a hard cutoff
-    // (gl_FragCoord.z-based distance approx since we don't have depth here)
-    float fade = clamp(1.0 - gl_FragCoord.z, 0.0, 1.0);
-    color.rgb = mix(fogColor, color.rgb, fade);
+    // build a fake hemisphere normal: flat at center-top, curving outward toward edges,
+    // dropping to zero (silhouette edge) at the circle boundary
+    float fakeHeight = sqrt(max(1.0 - dist2, 0.0));
+    vec3 fakeNormal = normalize(vec3(cellUV.x, fakeHeight, cellUV.y));
+
+    // light the fake sphere normal against the actual sun direction
+    float sun = clamp(dot(fakeNormal, normalize(shadowLightPosition)), 0.0, 1.0);
+    sun = mix(0.35, 1.15, sun); // keep a soft ambient floor so shadowed side isn't pure black
+
+    vec3 litColor = cloud.rgb * sun;
+
+    // round the silhouette: fade alpha to 0 outside the inscribed circle of the cell
+    float roundMask = 1.0 - smoothstep(0.75, 1.0, dist2);
+    cloud.a = smoothstep(0.0, 1.0, cloud.a) * 0.85 * roundMask;
+
+    // subtle texture variation
+    float variation = sin(texcoord.x * 40.0) * cos(texcoord.y * 40.0);
+    litColor *= 1.0 + variation * 0.03;
+
+    float fogFade = smoothstep(0.0, 0.85, 1.0 - gl_FragCoord.z);
+    litColor = mix(fogColor, litColor, fogFade);
+
+    litColor = mix(skyColor, litColor, cloud.a);
+
+    color = vec4(litColor, cloud.a);
 }
