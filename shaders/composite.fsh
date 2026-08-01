@@ -27,7 +27,7 @@ uniform float rainStrength;
 uniform sampler2D colortex4; // pbrData written by gbuffers_textured_lit.fsh
 uniform sampler2D normals;
 uniform sampler2D specular;
-
+uniform float frameTimeCounter;
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 color;
@@ -224,21 +224,25 @@ void main() {
 
     if (material > 0.5)
     {
-        // depth of the opaque surface behind the water (seafloor/terrain)
-        float opaqueDepth = texture(depthtex1, texcoord).r;
-        vec3 opaqueNDC = vec3(texcoord.xy, opaqueDepth) * 2.0 - 1.0;
+        // jitter the UV used to sample depth — makes the transparency gradient ripple over time
+        vec2 rippleTexcoord = texcoord;
+        float t = frameTimeCounter;
+        rippleTexcoord.x += sin(texcoord.y * 90.0 + t * 2.0) * 0.003;
+        rippleTexcoord.y += cos(texcoord.x * 90.0 + t * 1.7) * 0.003;
+
+        float opaqueDepth = texture(depthtex1, rippleTexcoord).r;
+        vec3 opaqueNDC = vec3(rippleTexcoord.xy, opaqueDepth) * 2.0 - 1.0;
         vec3 opaqueViewPos = projectAndDivide(gbufferProjectionInverse, opaqueNDC);
 
-        // distance light travels through the water at this pixel
         float waterDepth = distance(viewPos, opaqueViewPos);
 
-        vec3 shallowColor = vec3(0.10, 0.35, 0.45); // near-clear, pale
-        vec3 deepColor = vec3(0.01, 0.04, 0.08);    // dark, near-opaque
+        vec3 shallowColor = vec3(0.10, 0.5, 0.45);
+        vec3 deepColor = vec3(0.01, 0.04, 0.1);
 
-        float depthFactor = 1.0 - exp(-waterDepth * 0.25); // higher = darkens faster with depth
+        float depthFactor = 1.0 - exp(-waterDepth * 0.05);
         vec3 waterColor = mix(shallowColor, deepColor, depthFactor);
 
-        float blendAmount = mix(0.25, 0.85, depthFactor); // shallow edges stay more see-through
+        float blendAmount = mix(0.25, 0.85, depthFactor);
         color.rgb = mix(color.rgb, waterColor, blendAmount);
     }
 }
