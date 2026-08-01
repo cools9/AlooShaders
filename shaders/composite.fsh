@@ -23,7 +23,7 @@ uniform float viewWidth;
 uniform float viewHeight;
 uniform int worldTime;
 uniform float rainStrength;
-
+uniform sampler2D colortex4; // pbrData written by gbuffers_textured_lit.fsh
 uniform sampler2D normals;
 uniform sampler2D specular;
 
@@ -172,7 +172,7 @@ void main() {
     const vec3 blocklightColor = vec3(1.0, 0.5, 0.08);
     const vec3 skylightColor = vec3(0.05, 0.15, 0.3);
     const vec3 sunlightColor = vec3(1.0);
-    const vec3 ambientColor = vec3(0.3);
+    const vec3 ambientColor = vec3(0.5);
     const vec3 nightAmbientColor = vec3(0.18);
     const vec3 rainColor = vec3(0.2);
 
@@ -202,7 +202,7 @@ void main() {
         ambient = nightAmbientColor;
     }
 
-    vec4 specularTex = texture(specular, texcoord);
+    vec4 specularTex = texture(colortex4, texcoord); // was: texture(specular, texcoord) — now correctly screen-space
     float smoothness = specularTex.r;
     float roughness = pow(1.0 - smoothness, 2.0);
     vec3 F0 = getF0(specularTex, albedo);
