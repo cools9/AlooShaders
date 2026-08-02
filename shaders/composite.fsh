@@ -94,6 +94,10 @@ vec3 brdf(vec3 lightDir, vec3 viewDir, float roughness, vec3 normal, vec3 albedo
     return BRDF;
 }
 
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 vec3 projectAndDivide(mat4 projectionMatrix, vec3 position){
   vec4 homPos = projectionMatrix * vec4(position, 1.0);
   return homPos.xyz / homPos.w;
@@ -209,7 +213,7 @@ void main() {
     vec3 F0 = getF0(specularTex, albedo);
     float metallic = getMetallic(specularTex);
 
-    vec3 viewDir = normalize(-viewPos);
+    vec3 viewDir = normalize(-feetPlayerPos);
     vec3 lightDir = worldLightVector; // already normalized above
 
     vec3 directLight = brdf(lightDir, viewDir, roughness, normal, albedo, metallic, F0)
@@ -220,29 +224,57 @@ void main() {
 
     color.rgb = indirect + directLight;
 
+    //float material = texture(colortex3, texcoord).r;
     float material = texture(colortex3, texcoord).r;
 
     if (material > 0.5)
     {
-        // jitter the UV used to sample depth — makes the transparency gradient ripple over time
         vec2 rippleTexcoord = texcoord;
         float t = frameTimeCounter;
-        rippleTexcoord.x += sin(texcoord.y * 90.0 + t * 2.0) * 0.003;
-        rippleTexcoord.y += cos(texcoord.x * 90.0 + t * 1.7) * 0.003;
+        rippleTexcoord.x += sin(texcoord.y * 80.0 + t * 2.0) * 0.003;
+        rippleTexcoord.y += cos(texcoord.x * 80.0 + t * 1.7) * 0.003;
 
-        float opaqueDepth = texture(depthtex1, rippleTexcoord).r;
-        vec3 opaqueNDC = vec3(rippleTexcoord.xy, opaqueDepth) * 2.0 - 1.0;
-        vec3 opaqueViewPos = projectAndDivide(gbufferProjectionInverse, opaqueNDC);
+        // true depth at this exact pixel, no ripple — used as a sanity reference
+        float trueOpaqueDepth = texture(depthtex1, texcoord).r;
+        vec3 trueOpaqueNDC = vec3(texcoord.xy, trueOpaqueDepth) * 2.0 - 1.0;
+        vec3 trueOpaqueViewPos = projectAndDivide(gbufferProjectionInverse, trueOpaqueNDC);
+        float trueWaterDepth = distance(viewPos, trueOpaqueViewPos);
 
-        float waterDepth = distance(viewPos, opaqueViewPos);
+        // rippled depth, used for the wavy effect
+        float rippleOpaqueDepth = texture(depthtex1, rippleTexcoord).r;
+        vec3 rippleOpaqueNDC = vec3(rippleTexcoord.xy, rippleOpaqueDepth) * 2.0 - 1.0;
+        vec3 rippleOpaqueViewPos = projectAndDivide(gbufferProjectionInverse, rippleOpaqueNDC);
+        float rippleWaterDepth = distance(viewPos, rippleOpaqueViewPos);
 
-        vec3 shallowColor = vec3(0.10, 0.5, 0.45);
-        vec3 deepColor = vec3(0.01, 0.04, 0.1);
+        // if the rippled sample disagrees wildly with the true depth (i.e. it crossed
+        // onto land or a totally different surface), fall back to the true depth instead
+        float waterDepth = abs(rippleWaterDepth - trueWaterDepth) > 2.0 ? trueWaterDepth : rippleWaterDepth;
 
-        float depthFactor = 1.0 - exp(-waterDepth * 0.05);
+        vec3 shallowColor = vec3(0.10, 0.35, 0.45);
+        vec3 deepColor = vec3(0.01, 0.04, 0.08);
+
+        float depthFactor = 1.0 - exp(-waterDepth * 0.15);
+        depthFactor = smoothstep(0.0, 1.0, depthFactor);
         vec3 waterColor = mix(shallowColor, deepColor, depthFactor);
 
         float blendAmount = mix(0.25, 0.85, depthFactor);
         color.rgb = mix(color.rgb, waterColor, blendAmount);
+
+        // stabilized normal just for reflection — dampens per-frame wave jitter
+        // that was causing the Fresnel term (and thus reflection brightness) to flicker
+        vec3 reflectionNormal = normalize(mix(vec3(0.0, 1.0, 0.0), normal, 0.3));
+
+        vec3 waterF0 = vec3(0.02);
+        float NdotV = clamp(dot(reflectionNormal, viewDir), 0.001, 1.0);
+        float nightFactor = isDaytime ? dayBrightness : 0.0; // suppress reflection brightness entirely at night, moon or not
+
+        vec3 fresnel = fresnelSchlick(NdotV, waterF0);
+        float reflectionStrength = fresnel.r * 0.5;
+        reflectionStrength *= smoothstep(0.3, 0.05, NdotV);
+
+        vec3 skyColor = mix(vec3(0.4, 0.55, 0.75), vec3(0.9, 0.95, 1.0), nightFactor);
+        vec3 reflection = skyColor * nightFactor;
+
+        color.rgb = mix(color.rgb, reflection, reflectionStrength * (nightFactor > 0.0 ? 1.0 : 0.15));
     }
 }

@@ -36,20 +36,27 @@ void main() {
     {
         float t = frameTimeCounter;
         vec2 uv = texcoord * 32.0;
-        vec2 scrollA = uv * 0.05 + vec2(t * 0.6, t * 0.3);
-        vec2 scrollB = uv * 0.13 - vec2(t * 0.25, t * 0.45);
-        float noiseA = texture(noisetex, fract(scrollA)).r;
-        float noiseB = texture(noisetex, fract(scrollB)).r;
-        float waveX = sin(uv.x * 1.7 + t * 2.0 + noiseA * 6.2831) + (noiseB - 0.5) * 2.0;
-        float waveZ = cos(uv.y * 1.5 + t * 2.2 + noiseB * 6.2831) + (noiseA - 0.5) * 2.0;
-        N = normalize(vec3(waveX * 0.15, 1.0, waveZ * 0.15));
+
+        // pure sine/cosine wave, no noise texture scrolling
+        float waveX =
+              sin(uv.x * 1.7 + t * 2.0)
+            + sin(uv.y * 2.8 + t * 1.4)
+            + sin((uv.x + uv.y) * 1.2 + t * 2.7);
+        float waveZ =
+              cos(uv.y * 1.5 + t * 2.2)
+            + cos(uv.x * 2.5 + t * 1.8)
+            + cos((uv.x - uv.y) * 1.3 + t * 2.4);
+
+        N = normalize(vec3(waveX * 0.08, 1.0, waveZ * 0.08));
         materialData = vec4(1.0, 0.0, 0.0, 1.0);
     }
 
     // normal map: perturb N using the tangent-space normal texture, real texcoord this time
+    // skip for water — its wave normal already handles surface detail, and the flat
+    // tangent/bitangent (computed for unmoved geometry) can go degenerate against a
+    // wave-tilted N, causing black spots
     vec3 texNormal = texture(normals, texcoord).rgb * 2.0 - 1.0;
-    if (texNormal != vec3(-1.0)) {
-        //vec3 texNormal = texture(normals, texcoord).rgb * 2.0 - 1.0;
+    if (texNormal != vec3(-1.0) && blockId != 101) {
         mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(N));
         N = normalize(TBN * texNormal);
     }

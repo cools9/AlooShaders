@@ -28,7 +28,7 @@ void main() {
   float density = 0.01; // normal above-water fog density
 
   if (isEyeInWater == 1) {
-      currentFogColor = vec3(0.02, 0.15, 0.25); // deep blue underwater tint
+      currentFogColor = vec3(0.12, 0.15, 0.35); // deep blue underwater tint
       density = 0.12; // much thicker falloff — things vanish into fog quickly underwater
   }
 
