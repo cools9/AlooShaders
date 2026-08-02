@@ -1,5 +1,6 @@
 #version 330 compatibility
 
+#define SATURATION 1.3 // [0.0 0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6 1.8 2.0]
 #include "/lib/distort.glsl"
 #define SHADOW_RANGE 1
 #define SHADOW_RADIUS 0.6
@@ -31,6 +32,11 @@ uniform float frameTimeCounter;
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 color;
+
+vec3 adjustSaturation(vec3 color, float saturation) {
+    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    return mix(vec3(luminance), color, saturation);
+}
 
 vec3 getMetalF0(int id) {
     if (id == 230) return vec3(0.531, 0.512, 0.496); // Iron
@@ -221,8 +227,13 @@ void main() {
 
     vec3 blocklight = lightmap.r * blocklightColor;
     vec3 indirect = albedo * (blocklight + skylight + ambient);
+    float ambientNdotV = clamp(dot(normal, viewDir), 0.001, 1.0);
+    vec3 ambientFresnel = fresnelSchlick(ambientNdotV, F0);
+    vec3 ambientSpecular = ambientFresnel * (skylight + ambient) * (1.0 - roughness);
+    vec3 specularSum = directLight + ambientSpecular;
+    specularSum = specularSum / (1.0 + specularSum); // local Reinhard, specular-only
 
-    color.rgb = indirect + directLight;
+    color.rgb = indirect + specularSum;
 
     
     float material = texture(colortex3, texcoord).r;
@@ -231,7 +242,7 @@ void main() {
     {
         vec2 rippleTexcoord = texcoord;
         float t = frameTimeCounter;
-        rippleTexcoord.x += sin(texcoord.y * 80.0 + t * 2.0) * 0.003;
+        rippleTexcoord.x += sin(texcoord.y * 80.0 + t * 2.0) * 0.005;
         rippleTexcoord.y += cos(texcoord.x * 80.0 + t * 1.7) * 0.003;
 
     
@@ -275,4 +286,5 @@ void main() {
 
         color.rgb = mix(color.rgb, reflection, reflectionStrength * (nightFactor > 0.0 ? 1.0 : 0.15));
     }
+    color.rgb = adjustSaturation(color.rgb, SATURATION);
 }

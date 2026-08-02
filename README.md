@@ -37,3 +37,4 @@ Fun Fact: Aloo means potato in hindi which is meant to symbolise that my shaders
 
 - Built by following the [Iris shader tutorial](https://shaders.properties/current/guides/your-first-shaderpack/0_intro/)
 - Everything past the tutorial (clouds, foliage, waves, day/night lighting,etc) is MADE BY ME.
+- Resource Pack used is (Vanilla Mashup 1.5)[https://modrinth.com/resourcepack/vanilla-mashup-pbr]
