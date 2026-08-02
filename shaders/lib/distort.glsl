@@ -11,10 +11,10 @@ const bool shadowcolor0Nearest = false;
 #define SHADOW_RANGE 1
 
 vec3 distortShadowClipPos(vec3 shadowClipPos){
-  float distortionFactor = length(shadowClipPos.xy); // distance from the player in shadow clip space
-  distortionFactor += 0.1; // very small distances can cause issues so we add this to slightly reduce the distortion
+  float distortionFactor = length(shadowClipPos.xy); 
+  distortionFactor += 0.1; 
 
   shadowClipPos.xy /= distortionFactor;
-  shadowClipPos.z *= 0.5; // increases shadow distance on the Z axis, which helps when the sun is very low in the sky
+  shadowClipPos.z *= 0.5; 
   return shadowClipPos;
 }

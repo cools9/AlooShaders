@@ -24,7 +24,6 @@ void main() {
     else if (blockId == 101) {
         float t = frameTimeCounter;
 
-        // world-space-ish position so the wave pattern doesn't repeat with UV tiling
         float waveHeight =
               sin(position.x * 0.6 + t * 1.2) * 0.04
             + cos(position.z * 0.5 + t * 1.5) * 0.04
@@ -40,5 +39,5 @@ void main() {
 
     normal = mat3(gbufferModelViewInverse) * (gl_NormalMatrix * N);
     tangent = mat3(gbufferModelViewInverse) * (gl_NormalMatrix * at_tangent.xyz);
-    bitangent = cross(tangent, normal) * at_tangent.w; // DirectX-style handedness, per labPBR
+    bitangent = cross(tangent, normal) * at_tangent.w;
 }

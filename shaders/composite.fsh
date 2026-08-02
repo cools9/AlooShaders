@@ -24,7 +24,7 @@ uniform float viewWidth;
 uniform float viewHeight;
 uniform int worldTime;
 uniform float rainStrength;
-uniform sampler2D colortex4; // pbrData written by gbuffers_textured_lit.fsh
+uniform sampler2D colortex4; 
 uniform sampler2D normals;
 uniform sampler2D specular;
 uniform float frameTimeCounter;
@@ -41,23 +41,23 @@ vec3 getMetalF0(int id) {
     if (id == 235) return vec3(0.633, 0.626, 0.641); // Lead
     if (id == 236) return vec3(0.679, 0.642, 0.588); // Platinum
     if (id == 237) return vec3(0.962, 0.949, 0.922); // Silver
-    return vec3(0.9); // 238-254 undefined by spec, fallback
+    return vec3(0.9); 
 }
 
 vec3 getF0(vec4 specularTex, vec3 albedo) {
     int id = int(specularTex.g * 255.0 + 0.5);
     if (id <= 229) {
-        return vec3(specularTex.g); // dielectric, linear
+        return vec3(specularTex.g); 
     } else if (id == 255) {
-        return albedo; // generic metal — use surface color as F0
+        return albedo;
     } else {
-        return getMetalF0(id); // predefined metal
+        return getMetalF0(id); 
     }
 }
 
 float getMetallic(vec4 specularTex) {
     int id = int(specularTex.g * 255.0 + 0.5);
-    return id >= 230 ? 1.0 : 0.0; // per spec: 230+ is metal (predefined or generic via albedo)
+    return id >= 230 ? 1.0 : 0.0; 
 }
 
 vec3 brdf(vec3 lightDir, vec3 viewDir, float roughness, vec3 normal, vec3 albedo, float metallic, vec3 reflectance) {
@@ -70,20 +70,20 @@ vec3 brdf(vec3 lightDir, vec3 viewDir, float roughness, vec3 normal, vec3 albedo
     float NdotH = clamp(dot(normal, H), 0.001, 1.0);
     float VdotH = clamp(dot(viewDir, H), 0.001, 1.0);
 
-    // Fresnel
+    
     vec3 F0 = reflectance;
     vec3 fresnelReflectance = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
 
-    // Diffuse (Lambertian, energy-conserving)
-    vec3 rhoD = albedo / 3.14159;
+    
+    vec3 rhoD = albedo / 3.141;
     rhoD *= (vec3(1.0) - fresnelReflectance);
-    rhoD *= (1.0 - metallic); // metals have ~zero diffuse
+    rhoD *= (1.0 - metallic); 
 
-    // Geometric attenuation
+    
     float k = alpha / 2.0;
     float geometry = (NdotL / (NdotL * (1.0 - k) + k)) * (NdotV / (NdotV * (1.0 - k) + k));
 
-    // Normal distribution (GGX)
+    
     float lowerTerm = pow(NdotH, 2.0) * (pow(alpha, 2.0) - 1.0) + 1.0;
     float distribution = pow(alpha, 2.0) / (3.14159 * pow(lowerTerm, 2.0));
 
@@ -153,7 +153,7 @@ void main() {
     if (depth == 1.0) { color = texture(colortex0, texcoord); return; }
 
     color = texture(colortex0, texcoord);
-    vec3 albedo = color.rgb; // keep the unlit base color for BRDF diffuse + generic-metal F0
+    vec3 albedo = color.rgb; 
 
     vec3 NDCPos = vec3(texcoord.xy, depth) * 2.0 - 1.0;
     vec3 viewPos = projectAndDivide(gbufferProjectionInverse, NDCPos);
@@ -207,24 +207,24 @@ void main() {
         ambient = nightAmbientColor;
     }
 
-    vec4 specularTex = texture(colortex4, texcoord); // was: texture(specular, texcoord) — now correctly screen-space
+    vec4 specularTex = texture(colortex4, texcoord); 
     float smoothness = specularTex.r;
     float roughness = pow(1.0 - smoothness, 2.0);
     vec3 F0 = getF0(specularTex, albedo);
     float metallic = getMetallic(specularTex);
 
     vec3 viewDir = normalize(-feetPlayerPos);
-    vec3 lightDir = worldLightVector; // already normalized above
+    vec3 lightDir = worldLightVector; 
 
     vec3 directLight = brdf(lightDir, viewDir, roughness, normal, albedo, metallic, F0)
-                        * sunlightColor * shadow * dayBrightness; // NdotL already baked into brdf()
+                        * sunlightColor * shadow * dayBrightness; 
 
     vec3 blocklight = lightmap.r * blocklightColor;
     vec3 indirect = albedo * (blocklight + skylight + ambient);
 
     color.rgb = indirect + directLight;
 
-    //float material = texture(colortex3, texcoord).r;
+    
     float material = texture(colortex3, texcoord).r;
 
     if (material > 0.5)
@@ -234,39 +234,37 @@ void main() {
         rippleTexcoord.x += sin(texcoord.y * 80.0 + t * 2.0) * 0.003;
         rippleTexcoord.y += cos(texcoord.x * 80.0 + t * 1.7) * 0.003;
 
-        // true depth at this exact pixel, no ripple — used as a sanity reference
+    
         float trueOpaqueDepth = texture(depthtex1, texcoord).r;
         vec3 trueOpaqueNDC = vec3(texcoord.xy, trueOpaqueDepth) * 2.0 - 1.0;
         vec3 trueOpaqueViewPos = projectAndDivide(gbufferProjectionInverse, trueOpaqueNDC);
         float trueWaterDepth = distance(viewPos, trueOpaqueViewPos);
 
-        // rippled depth, used for the wavy effect
+    
         float rippleOpaqueDepth = texture(depthtex1, rippleTexcoord).r;
         vec3 rippleOpaqueNDC = vec3(rippleTexcoord.xy, rippleOpaqueDepth) * 2.0 - 1.0;
         vec3 rippleOpaqueViewPos = projectAndDivide(gbufferProjectionInverse, rippleOpaqueNDC);
         float rippleWaterDepth = distance(viewPos, rippleOpaqueViewPos);
 
-        // if the rippled sample disagrees wildly with the true depth (i.e. it crossed
-        // onto land or a totally different surface), fall back to the true depth instead
+    
         float waterDepth = abs(rippleWaterDepth - trueWaterDepth) > 2.0 ? trueWaterDepth : rippleWaterDepth;
 
         vec3 shallowColor = vec3(0.10, 0.35, 0.45);
         vec3 deepColor = vec3(0.01, 0.04, 0.08);
 
-        float depthFactor = 1.0 - exp(-waterDepth * 0.15);
+        float depthFactor = 1.0 - exp(-waterDepth * 0.05);
         depthFactor = smoothstep(0.0, 1.0, depthFactor);
         vec3 waterColor = mix(shallowColor, deepColor, depthFactor);
 
         float blendAmount = mix(0.25, 0.85, depthFactor);
         color.rgb = mix(color.rgb, waterColor, blendAmount);
 
-        // stabilized normal just for reflection — dampens per-frame wave jitter
-        // that was causing the Fresnel term (and thus reflection brightness) to flicker
+    
         vec3 reflectionNormal = normalize(mix(vec3(0.0, 1.0, 0.0), normal, 0.3));
 
         vec3 waterF0 = vec3(0.02);
         float NdotV = clamp(dot(reflectionNormal, viewDir), 0.001, 1.0);
-        float nightFactor = isDaytime ? dayBrightness : 0.0; // suppress reflection brightness entirely at night, moon or not
+        float nightFactor = isDaytime ? dayBrightness : 0.0; 
 
         vec3 fresnel = fresnelSchlick(NdotV, waterF0);
         float reflectionStrength = fresnel.r * 0.5;

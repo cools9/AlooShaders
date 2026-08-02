@@ -25,11 +25,10 @@ void main() {
   vec3 viewPos = projectAndDivide(gbufferProjectionInverse, NDCPos);
 
   vec3 currentFogColor = fogColor;
-  float density = 0.01; // normal above-water fog density
-
+  float density = 0.01;  
   if (isEyeInWater == 1) {
-      currentFogColor = vec3(0.12, 0.15, 0.35); // deep blue underwater tint
-      density = 0.12; // much thicker falloff — things vanish into fog quickly underwater
+      currentFogColor = vec3(0.12, 0.15, 0.35); 
+      density = 0.02; 
   }
 
   float fogFactor = 1.0 - exp(-length(viewPos) * density);

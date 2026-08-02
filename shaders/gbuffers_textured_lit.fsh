@@ -51,10 +51,6 @@ void main() {
         materialData = vec4(1.0, 0.0, 0.0, 1.0);
     }
 
-    // normal map: perturb N using the tangent-space normal texture, real texcoord this time
-    // skip for water — its wave normal already handles surface detail, and the flat
-    // tangent/bitangent (computed for unmoved geometry) can go degenerate against a
-    // wave-tilted N, causing black spots
     vec3 texNormal = texture(normals, texcoord).rgb * 2.0 - 1.0;
     if (texNormal != vec3(-1.0) && blockId != 101) {
         mat3 TBN = mat3(normalize(tangent), normalize(bitangent), normalize(N));
