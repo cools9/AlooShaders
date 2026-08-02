@@ -10,7 +10,8 @@ Fun Fact: Aloo means potato in hindi which is meant to symbolise that my shaders
 - Fog
 
 ## Features (by me)
-
+- dynamic and deffered lighting
+- underwater fog
 - Coloured clouds
 - Slight PBR(requires resource pack)
 - Moving foliage
@@ -30,6 +31,7 @@ Fun Fact: Aloo means potato in hindi which is meant to symbolise that my shaders
 
 ## Known issues / stuff I skipped
 - No bloom, or ambient occlusion
+- transparent hands
 - No volumetric clouds, just tuned vanilla ones
 - Probably still tanks your FPS a bit even though it's meant for low-end PCs, no promises
 
@@ -37,4 +39,9 @@ Fun Fact: Aloo means potato in hindi which is meant to symbolise that my shaders
 
 - Built by following the [Iris shader tutorial](https://shaders.properties/current/guides/your-first-shaderpack/0_intro/)
 - Everything past the tutorial (clouds, foliage, waves, day/night lighting,etc) is MADE BY ME.
-- Resource Pack used is (Vanilla Mashup 1.5)[https://modrinth.com/resourcepack/vanilla-mashup-pbr]
+- Resource Pack used is [Vanilla Mashup 1.5](https://modrinth.com/resourcepack/vanilla-mashup-pbr)
+
+## Gallery
+![Screenshot](gallery/Screenshot_20260802_132354.png)
+![Screenshot](gallery/Screenshot_20260802_132511.png)
+![Screenshot](gallery/Screenshot_20260802_132636.png)
